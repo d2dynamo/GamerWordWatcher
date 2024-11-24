@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package message;
+
+option go_package = "github.com/d2dynamo/GamerWordWatcher/proto/message";
+
+service GamerWordWatcher {
+  rpc WatchGamerWord (TextMessage) returns (WatcherResponse) {}
+
+}
+
+message TextMessage {
+  string text = 1;
+  string guildId = 2;
+  string channelId = 3;
+  string userId = 4;
+}
+
+message WatcherResponse {
+  bool acknowledged = 1;
+}

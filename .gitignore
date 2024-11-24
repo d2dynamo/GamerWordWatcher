@@ -1,1 +1,5 @@
 .env
+
+# wtf, can exclude proto folder but cannot implicitly include .proto files
+# proto/*
+# !proto/**/*.proto
