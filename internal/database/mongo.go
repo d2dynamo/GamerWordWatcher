@@ -25,7 +25,20 @@ var mongoClient *mongo.Client = nil
 
 var mu sync.Mutex
 
-func GetMongoDBClient() (*mongo.Client, *context.Context, error) {
+func ConnectCollection(collName string) (*mongo.Collection, *context.Context, error) {
+	db, ctx, err := GetClient()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dbName := os.Getenv("MONGO_DB_NAME")
+
+	coll := db.Database(dbName).Collection(collName)
+
+	return coll, ctx, nil
+}
+
+func GetClient() (*mongo.Client, *context.Context, error) {
 	if mongoClient != nil {
 		err := mongoClient.Ping(ctxMongo, readpref.Primary())
 		if err == nil {

@@ -13,9 +13,11 @@ message TextMessage {
   string content = 1;
   string guildDID = 2;
   string channelDID = 3;
-  string userDID = 4;
+  string messageDID = 4;
 }
 
 message WatcherResponse {
   bool acknowledged = 1;
+  bool isGamerWord = 2;
+  
 }
