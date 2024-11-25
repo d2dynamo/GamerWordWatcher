@@ -10,10 +10,10 @@ service GamerWordWatcher {
 }
 
 message TextMessage {
-  string text = 1;
-  string guildId = 2;
-  string channelId = 3;
-  string userId = 4;
+  string content = 1;
+  string guildDID = 2;
+  string channelDID = 3;
+  string userDID = 4;
 }
 
 message WatcherResponse {

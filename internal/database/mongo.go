@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -16,13 +14,13 @@ import (
 )
 
 const (
-	MAX_POOL_SIZE      = 600
-	MIN_POOL_SIZE      = 20
+	MAX_POOL_SIZE      = 200
+	MIN_POOL_SIZE      = 10
 	MAX_CONN_IDLE_TIME = 3 * time.Minute
 	APP_NAME           = "GamerWordWatcher"
 )
 
-var ctxMongo = context.Background()
+var ctxMongo = context.TODO()
 var mongoClient *mongo.Client = nil
 
 var mu sync.Mutex
@@ -38,67 +36,41 @@ func GetMongoDBClient() (*mongo.Client, *context.Context, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if mongoClient != nil {
-		err := mongoClient.Ping(ctxMongo, readpref.Primary())
-		if err == nil {
-			log.Println("Using existing mongo client")
-			return mongoClient, &ctxMongo, nil
-		}
-	}
-
-	log.Println("Creating new mongo client")
-
 	maxPoolSize := uint64(MAX_POOL_SIZE)
 	minPoolSize := uint64(MIN_POOL_SIZE)
 	maxIdleTime := MAX_CONN_IDLE_TIME
 	appName := APP_NAME
 
-	uri := os.Getenv("MONGO_HOST") + ":" + os.Getenv("MONGO_PORT")
+	caFile := os.Getenv("MONGO_CA_PATH")
+	certFile := os.Getenv("MONGO_CERT_PATH")
+	keyFile := os.Getenv("MONGO_KEY_PATH")
 
-	rootCA, err := os.ReadFile(os.Getenv("MONGO_CA_PATH"))
+	caCert, err := os.ReadFile(caFile)
 	if err != nil {
-		fmt.Println("Error while loading root CA:", err)
-		return nil, nil, err
+		panic(err)
+	}
+	caCertPool := x509.NewCertPool()
+
+	if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+		panic("Error: CA file must be in PEM format")
 	}
 
-	rootCAs := x509.NewCertPool()
-	if ok := rootCAs.AppendCertsFromPEM(rootCA); !ok {
-		fmt.Println("Error while adding root CA to cert pool")
-		return nil, nil, err
-	}
-
-	clientCert, err := tls.LoadX509KeyPair(os.Getenv("MONGO_CLIENT_CERT_PATH"), os.Getenv("MONGO_CLIENT_KEY_PATH"))
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		fmt.Println("Error while loading client cert:", err)
-		return nil, nil, err
+		panic(err)
 	}
 
 	tlsConfig := &tls.Config{
-		RootCAs:            rootCAs,
-		Certificates:       []tls.Certificate{clientCert},
+		RootCAs:            caCertPool,
+		Certificates:       []tls.Certificate{cert},
 		InsecureSkipVerify: true,
 	}
 
-	clientOptions := options.ClientOptions{
-		Auth: &options.Credential{
-			AuthMechanism: "MONGODB-X509",
-			AuthSource:    "$external",
-		},
-		MaxPoolSize:     &maxPoolSize,
-		MinPoolSize:     &minPoolSize,
-		MaxConnIdleTime: &maxIdleTime,
-		AppName:         &appName,
-		TLSConfig:       tlsConfig,
-	}
+	uri := os.Getenv("MONGO_URI")
 
-	clientOptions.ApplyURI(uri)
+	clientOpts := options.Client().ApplyURI(uri).SetAppName(appName).SetMaxPoolSize(maxPoolSize).SetMinPoolSize(minPoolSize).SetMaxConnIdleTime(maxIdleTime).SetTLSConfig(tlsConfig)
 
-	m, err := mongo.NewClient(&clientOptions)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = m.Connect(ctxMongo)
+	m, err := mongo.Connect(ctxMongo, clientOpts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,8 +81,6 @@ func GetMongoDBClient() (*mongo.Client, *context.Context, error) {
 	}
 
 	mongoClient = m
-
-	// alreadyCreatingNewMongoClient = false
 
 	return m, &ctxMongo, nil
 }
