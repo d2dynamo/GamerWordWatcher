@@ -13,3 +13,5 @@ type User struct {
 	createdAt time.Time          `bson:"createdAt,omitempty"`
 	updatedAt time.Time          `bson:"updatedAt,omitempty"`
 }
+
+type UserRepository interface{}
